@@ -1,0 +1,27 @@
+{% extends "factory_base.html" %}
+{% block content %}
+<h2>Задачи</h2>
+
+<form method="GET" action="{{ url_for('factory_dashboard') }}">
+    <label>Фильтр по этапу:</label>
+    <select name="stage">
+        <option value="">Все</option>
+        {% for s in stages %}
+            <option value="{{ s }}" {% if request.args.get('stage') == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit">Фильтровать</button>
+</form>
+
+<ul>
+{% for task in tasks %}
+    <li>
+        <strong>{{ task.title }}</strong> | Этап: {{ task.stage }} | Автор: {{ task.author_email }}
+        {% if is_admin and task.stage != stages[-1] %}
+            | <a href="{{ url_for('next_stage', task_id=task.id) }}">Следующий этап</a>
+        {% endif %}
+    </li>
+{% endfor %}
+</ul>
+
+{% endblock %}
