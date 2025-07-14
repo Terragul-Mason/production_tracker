@@ -1,11 +1,21 @@
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Courier New', monospace;
     margin: 20px;
-    background: #f4f4f4;
+    background: #2c2c2c;
+    color: #f0f0f0;
 }
 
 h1, h2, h3 {
-    color: #2c3e50;
+    color: #f1c40f; /* Жёлтые заголовки */
+}
+
+a {
+    color: #f39c12; /* Оранжево-жёлтые ссылки */
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
 }
 
 ul {
@@ -14,22 +24,44 @@ ul {
 }
 
 li {
-    background: #fff;
+    background: #3b3b3b;
     margin-bottom: 10px;
-    padding: 10px;
-    border-radius: 5px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    padding: 12px;
+    border-radius: 6px;
+    border-left: 5px solid #f1c40f;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 
 button {
-    background: #3498db;
-    color: #fff;
+    background: #f1c40f;
+    color: #2c2c2c;
     border: none;
-    padding: 8px 15px;
+    padding: 10px 20px;
     border-radius: 5px;
+    font-weight: bold;
     cursor: pointer;
+    transition: 0.2s;
 }
 
 button:hover {
-    background: #2980b9;
+    background: #d4ac0d;
+}
+
+input, select {
+    background: #3b3b3b;
+    color: #f0f0f0;
+    border: 1px solid #777;
+    padding: 8px;
+    border-radius: 4px;
+    margin-top: 5px;
+}
+
+form {
+    margin-bottom: 20px;
+}
+
+hr {
+    border: 0;
+    height: 1px;
+    background: #444;
 }
