@@ -6,20 +6,25 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='factory_style.css') }}">
 </head>
 <body>
-    <h1>Производственный Контроль</h1>
+    <h1>Контроль Производства</h1>
     {% if session.user_email %}
-        <p><a href="{{ url_for('factory_dashboard') }}">Главная</a>
-        {% if not session.is_admin %}
-            | <a href="{{ url_for('factory_create_task') }}">Создать задачу</a>
-        {% endif %}
-        | <a href="{{ url_for('logout') }}">Выйти</a></p>
+        <p>
+            <a href="{{ url_for('factory_dashboard') }}">Панель задач</a>
+            {% if not session.is_admin %}
+                | <a href="{{ url_for('factory_create_task') }}">Создать задачу</a>
+            {% endif %}
+            {% if session.is_superadmin %}
+                | <a href="{{ url_for('manage_factory_admins') }}">Управление админами</a>
+            {% endif %}
+            | <a href="{{ url_for('logout') }}">Выйти</a>
+        </p>
     {% endif %}
     <hr>
     {% with messages = get_flashed_messages() %}
         {% if messages %}
             <ul>
             {% for msg in messages %}
-                <li style="color: red;">{{ msg }}</li>
+                <li style="color: #f39c12;">{{ msg }}</li>
             {% endfor %}
             </ul>
         {% endif %}

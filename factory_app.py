@@ -1,7 +1,7 @@
 from flask import Flask, render_template, redirect, url_for, request, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import wraps
 
 app = Flask(__name__)
@@ -13,13 +13,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 STAGES = ['Подготовка', 'Сборка', 'Контроль качества', 'Упаковка']
-ADMINS = ['factory_admin@tracker.local']
+SUPER_ADMINS = ['factory_admin@tracker.local']
 
 class User(db.Model):
     __tablename__ = 'factory_users'
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
 
 class Task(db.Model):
     __tablename__ = 'factory_tasks'
@@ -28,13 +29,6 @@ class Task(db.Model):
     stage = db.Column(db.String(50), nullable=False, default='Подготовка')
     author_email = db.Column(db.String(120), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-class History(db.Model):
-    __tablename__ = 'factory_history'
-    id = db.Column(db.Integer, primary_key=True)
-    task_id = db.Column(db.Integer, nullable=False)
-    stage = db.Column(db.String(50), nullable=False)
-    changed_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 def login_required(f):
     @wraps(f)
@@ -71,7 +65,8 @@ def factory_login():
         user = User.query.filter_by(email=email).first()
         if user and check_password_hash(user.password, password):
             session['user_email'] = email
-            session['is_admin'] = email in ADMINS
+            session['is_admin'] = user.is_admin or (email in SUPER_ADMINS)
+            session['is_superadmin'] = email in SUPER_ADMINS
             return redirect(url_for('factory_dashboard'))
         flash('Неверный логин или пароль')
     return render_template('factory_login.html')
@@ -84,33 +79,19 @@ def logout():
 @app.route('/factory_dashboard')
 @login_required
 def factory_dashboard():
-    stage_filter = request.args.get('stage')
-    is_admin = session.get('is_admin')
-
-    if is_admin:
-        query = Task.query
-        if stage_filter:
-            query = query.filter_by(stage=stage_filter)
-        tasks = query.order_by(Task.created_at.desc()).all()
-
-        # Общая статистика для админа
+    if session.get('is_admin') or session.get('is_superadmin'):
+        tasks = Task.query.order_by(Task.created_at.desc()).all()
         stage_counts = {stage: Task.query.filter_by(stage=stage).count() for stage in STAGES}
-        delayed_tasks = Task.query.filter(Task.created_at < datetime.utcnow() - timedelta(days=3)).all()
     else:
-        # Пользователь видит только свои задачи
         tasks = Task.query.filter_by(author_email=session['user_email']).order_by(Task.created_at.desc()).all()
         stage_counts = {stage: Task.query.filter_by(stage=stage, author_email=session['user_email']).count() for stage in STAGES}
-        delayed_tasks = Task.query.filter(
-            Task.created_at < datetime.utcnow() - timedelta(days=3),
-            Task.author_email == session['user_email']
-        ).all()
 
     return render_template('factory_dashboard.html',
                            tasks=tasks,
                            stages=STAGES,
-                           is_admin=is_admin,
-                           stage_counts=stage_counts,
-                           delayed_tasks=delayed_tasks)
+                           is_admin=session.get('is_admin'),
+                           is_superadmin=session.get('is_superadmin'),
+                           stage_counts=stage_counts)
 
 @app.route('/factory_create_task', methods=['GET', 'POST'])
 @login_required
@@ -120,24 +101,41 @@ def factory_create_task():
         task = Task(title=title, stage='Подготовка', author_email=session['user_email'])
         db.session.add(task)
         db.session.commit()
-        db.session.add(History(task_id=task.id, stage='Подготовка'))
-        db.session.commit()
         return redirect(url_for('factory_dashboard'))
     return render_template('factory_create_task.html')
 
 @app.route('/next_stage/<int:task_id>')
 @login_required
 def next_stage(task_id):
-    if not session.get('is_admin'):
+    if not (session.get('is_admin') or session.get('is_superadmin')):
         flash('Нет доступа')
         return redirect(url_for('factory_dashboard'))
+
     task = Task.query.get_or_404(task_id)
     idx = STAGES.index(task.stage)
     if idx < len(STAGES) - 1:
         task.stage = STAGES[idx + 1]
-        db.session.add(History(task_id=task.id, stage=task.stage))
         db.session.commit()
     return redirect(url_for('factory_dashboard'))
+
+@app.route('/manage_factory_admins', methods=['GET', 'POST'])
+@login_required
+def manage_factory_admins():
+    if not session.get('is_superadmin'):
+        flash('Нет доступа')
+        return redirect(url_for('factory_dashboard'))
+
+    users = User.query.filter(User.email.notin_(SUPER_ADMINS)).all()
+
+    if request.method == 'POST':
+        for user in users:
+            checkbox = request.form.get(f'admin_{user.id}')
+            user.is_admin = bool(checkbox)
+        db.session.commit()
+        flash('Права обновлены')
+        return redirect(url_for('manage_factory_admins'))
+
+    return render_template('manage_factory_admins.html', users=users)
 
 if __name__ == '__main__':
     app.run(debug=True)
